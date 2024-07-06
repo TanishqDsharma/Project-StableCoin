@@ -7,7 +7,7 @@ import {Ownable} from "../lib/openzeppelin-contracts/contracts/access/Ownable.so
 
 import {DecentralizedStableCoin} from "../src/DecentralizedStableCoin.sol";
 
-import {RentrancyGuard} from "../lib/openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
+import {ReentrancyGuard} from "../lib/openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
 
 import {IERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 
@@ -35,7 +35,7 @@ import {AggregatorV3Interface} from "../lib/chainlink-brownie-contracts/contract
  * 
  */
 
-contract DSCEngine is RentrancyGuard{
+contract DSCEngine is ReentrancyGuard{
 
 
 
@@ -47,7 +47,7 @@ contract DSCEngine is RentrancyGuard{
     error DSCEngine__TokenAddressesAndPriceFeedAddressesMustBeSameLength();
     error  DSCEngine__NotAllowedToken();
     error DSCEngine__TransferFailed();
-
+    error DSCEngine__BreaksHealthFactor(uint256 healthFactor);
 
      //////////////////////// 
     //State Variables//////// 
@@ -58,12 +58,16 @@ contract DSCEngine is RentrancyGuard{
 
     mapping(address user=>mapping(address token =>uint256 amount) ) private s_collateralDeposited;
 
-    mapping(address user=>user amountDscMinted) private s_DSCMinted;
+    mapping(address user=>uint256 amountDscMinted) private s_DSCMinted;
 
     address[] private s_collateralTokens;
 
     uint256 private constant ADDITIONAL_FEED_PRECISION = 1e10;
     uint256 private constant PRECISION = 1e18;
+    uint256 private constant LIQUIDATION_THRESHOLD=50;
+    uint256 private constant LIQUIDATION_PRECISION = 100;
+    uint256 private constant MIN_HEALTH_FACTOR = 1;
+
 
     ///////////////////////////// 
     //Immutable Variables//////// 
@@ -76,7 +80,7 @@ contract DSCEngine is RentrancyGuard{
     //Events///
     ///////////
  
-    event CollateralDeposited(address indexed user, addres indexed token,uint256 amount);
+    event CollateralDeposited(address indexed user, address indexed token,uint256 amount);
 
 
 
@@ -87,13 +91,13 @@ contract DSCEngine is RentrancyGuard{
 
     modifier moreThanZero(uint256 amount){
         if(amount==0){
-            error DSCEngine__MoreThanZero();
+            revert DSCEngine__MoreThanZero();
         }
         _;
     }
 
     modifier isAllowedToken(address token){
-        if(s_priceFeeds[token]==address[0]){
+        if(s_priceFeeds[token]==address(0)){
             revert DSCEngine__NotAllowedToken();
         }
         _;
@@ -122,7 +126,7 @@ contract DSCEngine is RentrancyGuard{
 
 
     //////////////////////// 
-    /External Functions/////
+    //External Functions////
     ////////////////////////
 
     function depositCollateralAndMintDsc() external {}
@@ -139,7 +143,7 @@ contract DSCEngine is RentrancyGuard{
         external 
         moreThanZero(amountCollateral) 
         isAllowedToken(tokenCollateralAddress)
-        nonRentrant
+        nonReentrant
         {
             //First, we need a way to track how much collateral somebody has actually deposited
             s_collateralDeposited[msg.sender][tokenCollateralAddress] += amountCollateral;
@@ -175,7 +179,7 @@ contract DSCEngine is RentrancyGuard{
         s_DSCMinted[msg.sender]+=amountDSCToMint;
         // If they minted to much, for eg: If they have $100 WETH but minted $150 DSC we dont want this to happen
 
-        revertIfHealthFactorIsBroken(msg.sender);
+        _revertIfHealthFactorIsBroken(msg.sender);
 
 
     }
@@ -190,7 +194,7 @@ contract DSCEngine is RentrancyGuard{
 
     /**
      * 
-     * @param user 
+     * @param user Contains the user for which health factor calc is being done
      * Returns how close to liquidation a user is 
      * If user goes below 1, then they can get liquidated
      */
@@ -199,21 +203,27 @@ contract DSCEngine is RentrancyGuard{
         //Need to get there total collateral Value, make sure this value is greater than total DSC minted
 
         (uint256 totalDscMinted, uint256 collateralValueInUsd) = _getAccountInformation(user);
-
+        uint256 collateralAdjustedForThreshold = (collateralValueInUsd*LIQUIDATION_THRESHOLD)/LIQUIDATION_PRECISION;
+        return (collateralAdjustedForThreshold*PRECISION)/totalDscMinted;
     }
 
     function _getAccountInformation(address user) private view returns(
         uint256 totalDscMinted,
         uint256 collateralValueInUsd
     ) {
-        totalDscMinted = s_DSCMinted[user] //Getting Total DSC minted by user from the mapping 
+        totalDscMinted = s_DSCMinted[user];//Getting Total DSC minted by user from the mapping 
         collateralValueInUsd = getAccountCollateralValue(user);
     }
 
 
-    function revertIfHealthFactorIsBroken(address user) internal view {
+    function _revertIfHealthFactorIsBroken(address user) internal view {
         //1. Check health factor (if they have enough collateral)
        //2. Revert if they do not have good health factor
+
+       uint256 userHealthFactor = _healthFactor(user);
+       if(userHealthFactor<MIN_HEALTH_FACTOR){
+            revert DSCEngine__BreaksHealthFactor(userHealthFactor);
+       }
 
 
     }
@@ -232,6 +242,7 @@ contract DSCEngine is RentrancyGuard{
             uint256 amount = s_collateralDeposited[user][token];
             totalcollateralValueInUsd += getUsdValue(token,amount);
         }
+        return totalcollateralValueInUsd;
 
 
     }
