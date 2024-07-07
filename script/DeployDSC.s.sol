@@ -1,30 +1,28 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.19;
 
-pragma solidity ^0.8.16;
-
-import {DecentralizedStableCoin} from "../src/DecentralizedStableCoin.sol";
-import {Script} from "../lib/forge-std/src/Script.sol";
-import {DSCEngine} from "../src/DSCEngine.sol";
-import {HelperConfig} from "../script/HelperConfig.s.sol";
+import { Script } from "forge-std/Script.sol";
+import { HelperConfig } from "./HelperConfig.s.sol";
+import { DecentralizedStableCoin } from "../src/DecentralizedStableCoin.sol";
+import { DSCEngine } from "../src/DSCEngine.sol";
 
 contract DeployDSC is Script {
-address[] public tokenAddresses;
-address[] public priceFeedAddresses;
+    address[] public tokenAddresses;
+    address[] public priceFeedAddresses;
 
+    function run() external returns (DecentralizedStableCoin, DSCEngine, HelperConfig) {
+        HelperConfig helperConfig = new HelperConfig(); // This comes with our mocks!
 
-function run() external returns(DSCEngine,DecentralizedStableCoin){
-    HelperConfig config = new HelperConfig();
-    (address wethusdpricefeed,address wbtcusdpricefeed,address weth, address wbtc,uint256 deployerKey) = config.activeNetworkConfig();
+        (address wethUsdPriceFeed, address wbtcUsdPriceFeed, address weth, address wbtc, uint256 deployerKey) =
+            helperConfig.activeNetworkConfig();
+        tokenAddresses = [weth, wbtc];
+        priceFeedAddresses = [wethUsdPriceFeed, wbtcUsdPriceFeed];
 
-    tokenAddresses = [weth,wbtc];
-    priceFeedAddresses = [wethusdpricefeed,wbtcusdpricefeed];
-
-    vm.startBroadcast();
-    DecentralizedStableCoin dsc = new DecentralizedStableCoin();
-    DSCEngine engine = new DSCEngine(tokenAddresses,priceFeedAddresses,address(dsc));
-    dsc.transferOwnership(address(engine));
-    vm.stopBroadcast();
-    return (dsc,engine);
-}    
-
+        vm.startBroadcast(deployerKey);
+        DecentralizedStableCoin dsc = new DecentralizedStableCoin();
+        DSCEngine dscEngine = new DSCEngine(tokenAddresses, priceFeedAddresses, address(dsc));
+        dsc.transferOwnership(address(dscEngine));
+        vm.stopBroadcast();        
+        return (dsc, dscEngine, helperConfig);
+    }
 }

@@ -118,12 +118,14 @@ contract DSCEngine is ReentrancyGuard{
             revert  DSCEngine__TokenAddressesAndPriceFeedAddressesMustBeSameLength();
         }
 
-        for(uint256 i=0;i<=tokenAddresses.length;i++){
+        for(uint256 i=0;i<tokenAddresses.length;i++){
             s_priceFeeds[tokenAddresses[i]] = priceFeedAddresses[i];
             s_collateralTokens.push(tokenAddresses[i]);
         }
 
         i_dsc = DecentralizedStableCoin(dscAddress);
+
+        
     }
 
 
