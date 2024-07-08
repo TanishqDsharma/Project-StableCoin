@@ -42,7 +42,7 @@ uint256 public constant STARTING_ERC20_BALANCE = 10 ether;
     //// Price Tests //////
     /////////////////////// 
 
-    function testGetUsdValue() public{
+    function testGetUsdValue() public view{
         uint256 ethAmount = 15e18;
         uint256 expectedValueInUSD = 30000e18;
         uint256 actualValueInUSD=dsce.getUsdValue(weth,ethAmount);
