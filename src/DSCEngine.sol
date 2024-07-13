@@ -45,7 +45,7 @@ contract DSCEngine is ReentrancyGuard{
 
     error DSCEngine__MoreThanZero();
     error DSCEngine__TokenAddressesAndPriceFeedAddressesMustBeSameLength();
-    error  DSCEngine__NotAllowedToken();
+    error DSCEngine__NotAllowedToken();
     error DSCEngine__TransferFailed();
     error DSCEngine__BreaksHealthFactor(uint256 healthFactor);
     error DSCEngine__MintFailed();
@@ -403,4 +403,10 @@ contract DSCEngine is ReentrancyGuard{
         // 1 ETH = 1000$ 
         // The returned value from the CL will be 1000*1e8
         return ((uint256(price)*ADDITIONAL_FEED_PRECISION) *amount)/PRECISION;}
+
+    function getAccountInformation(address user) external view returns(
+        uint256 totalDSCMinted,
+        uint256 collateralValueInUsd){
+            (totalDSCMinted,collateralValueInUsd) = _getAccountInformation(user);
+    }
  }
