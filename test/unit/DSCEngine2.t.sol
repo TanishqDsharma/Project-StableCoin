@@ -214,5 +214,32 @@ uint256 public constant  AMOUNT_DSC_TO_MINT = 10e18;
     }
 
 
+    ////////////////////////////
+    ///// BurnDsc Tests ///////
+    //////////////////////////
 
+    function testRevertsIfBurnAmountIsZero() public depositedCollateralAndMintedDsc {
+        vm.startPrank(user);
+        dsc.approve(address(dsce),AMOUNT_DSC_TO_MINT);
+        vm.expectRevert();
+        dsce.burnDSC(0);
+    }
+
+    function testCantBurnMoreThanUserHas() public {
+        vm.prank(user);
+        vm.expectRevert();
+        dsce.burnDSC(2000);
+    }
+
+    function testCanBurnDsc() public depositedCollateralAndMintedDsc {
+        vm.startPrank(user);
+        dsc.approve(address(dsce),AMOUNT_DSC_TO_MINT);
+        dsce.burnDSC(AMOUNT_DSC_TO_MINT/2);
+        uint256 userBalance = dsc.balanceOf(user);
+        assertEq(userBalance, 5e18);
+        vm.stopPrank();
+        
+
+
+    }
 }
