@@ -36,6 +36,23 @@ contract Handler is Test {
 
     }
 
+    function mintDsc(uint256 amountOfDscToMint) public {
+        // We should only able to mintDsc if the amount is less than collateral
+        (uint256 totalDscminted,uint256 collateralValueInUsd) = dsce.getAccountInformation(msg.sender);
+        int256 maxDscToMint = (int256(collateralValueInUsd/2)) - int256(totalDscminted);
+        if(maxDscToMint<0){
+            return;
+        }
+        amountOfDscToMint = bound(amountOfDscToMint,0,uint256(maxDscToMint));
+        if(amountOfDscToMint<0){
+            return;
+        }
+        vm.startPrank(msg.sender);
+
+        dsce.mintDsc(amountOfDscToMint);
+        vm.stopPrank();
+    }
+
     // Redeem Collateral: Call this when you have collateral
 
     function depositCollateral(
