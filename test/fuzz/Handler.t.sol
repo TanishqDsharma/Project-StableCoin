@@ -37,6 +37,27 @@ uint256 MAX_DEPOSIT_SIZE = type(uint96).max;
 
 
     }
+    
+    function mintDsc(uint256 amount) public{
+        
+        (uint256 totalDscMinted, uint256 collateralValueInUsd) = dsce.getAccountInformation(msg.sender);
+        
+        int256 maxDscToMint = int256(collateralValueInUsd/2) - int256(totalDscMinted);
+
+        if(maxDscToMint<0){
+            return;
+        }
+        amount = _bound(amount, 1,uint256(maxDscToMint));
+        if(amount==0){
+            return;
+        }
+
+        vm.startPrank(msg.sender);
+
+        dsce.mintDsc(amount);
+        
+        vm.stopPrank();
+    }
 
     // So in your handlers whatever parameters you have are going to be randomized. So, we will make a random valid collateral to
     // deposit and then we will pick a random valid amountCollateral to deposit
@@ -51,7 +72,17 @@ uint256 MAX_DEPOSIT_SIZE = type(uint96).max;
         dsce.depositCollateral(address(collateral),amountCollateral);
     }
 
+    function redeemCollateral(uint256 collateralSeed,uint256 amountCollateral) public {
+        ERC20Mock collateral = _getCollateralFromSeed(collateralSeed);
+        uint256 maxCollateralToRedeem = dsce.getCollateralBalanceOfUser(address(collateral),msg.sender);
+        amountCollateral = _bound(amountCollateral,0,maxCollateralToRedeem);
+        if(amountCollateral==0){
+            return;
+        }
+        vm.startPrank(msg.sender);
+        dsce.redeemCollateral(address(collateral),amountCollateral);
 
+    }
 
     ////////////////////////
     ///Helper Functions////
